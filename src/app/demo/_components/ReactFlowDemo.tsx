@@ -13,6 +13,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import CustomNode from "./CustomNode";
 import { useStore } from "../_store/useStore";
+import { SAMPLE_WIREFRAMES, TWireframe } from "@/constants";
+import type { NodeData } from "../_store/useStore";
 
 const nodeTypes = {
   custom: CustomNode,
@@ -32,7 +34,7 @@ const initialNodes: Node[] = [
       padding: "10px",
       transition: "all 0.3s ease",
     },
-    data: { label: "Group 1" },
+    data: { label: "Group 1", wireframe: SAMPLE_WIREFRAMES[0] as TWireframe },
   },
   {
     id: "1",
@@ -42,6 +44,7 @@ const initialNodes: Node[] = [
     data: {
       label: "Screen 1",
       imageUrl: "/sample-image.jpg",
+      wireframe: SAMPLE_WIREFRAMES[2] as TWireframe,
     },
   },
   {
@@ -52,12 +55,13 @@ const initialNodes: Node[] = [
     data: {
       label: "Screen 2",
       imageUrl: "/sample-image.jpg",
+      wireframe: SAMPLE_WIREFRAMES[1] as TWireframe,
     },
   },
   {
     id: "group-2",
     type: "group",
-    position: { x: 500, y: 0 },
+    position: { x: 2500, y: 0 },
     style: {
       width: 400,
       height: 200,
@@ -77,6 +81,7 @@ const initialNodes: Node[] = [
     data: {
       label: "Screen 3",
       imageUrl: "/sample-image.jpg",
+      wireframe: SAMPLE_WIREFRAMES[2] as TWireframe,
     },
   },
   {
@@ -87,6 +92,7 @@ const initialNodes: Node[] = [
     data: {
       label: "Screen 4",
       imageUrl: "/sample-image.jpg",
+      wireframe: SAMPLE_WIREFRAMES[1] as TWireframe,
     },
   },
 ];
@@ -107,7 +113,62 @@ export default function ReactFlowDemo() {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   useEffect(() => {
-    setNodes(initialNodes);
+    const groupNodes = initialNodes.filter((node) => node.type === "group");
+
+    const nonGroupNodes = initialNodes.filter((node) => node.type !== "group");
+
+    const groupChildrenMap = new Map();
+
+    nonGroupNodes.forEach((node) => {
+      if (node.parentId) {
+        if (!groupChildrenMap.has(node.parentId)) {
+          groupChildrenMap.set(node.parentId, []);
+        }
+        groupChildrenMap.get(node.parentId).push(node);
+      }
+    });
+
+    // Process each group to calculate dimensions based on its children
+    const processedNodes = initialNodes.map((node) => {
+      if (node.type === "group") {
+        const children = groupChildrenMap.get(node.id) || [];
+
+        // Calculate max height and sum of widths
+        let maxHeight = 0;
+        let totalWidth = 0;
+        const padding = 20; // Padding between nodes
+
+        children.forEach((child: Node) => {
+          const childHeight =
+            ((child.data.wireframe as TWireframe).dimensions.height as number) +
+            2 * padding;
+          const childWidth =
+            ((child.data.wireframe as TWireframe).dimensions.width as number) +
+            padding;
+
+          maxHeight = Math.max(maxHeight, childHeight);
+          totalWidth += childWidth;
+        });
+
+        // Add padding to the group dimensions
+        const groupPadding = 40;
+        const groupHeight = maxHeight + groupPadding;
+        const groupWidth = totalWidth + groupPadding;
+
+        // Update group node with calculated dimensions
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            width: Math.max(groupWidth, 400), // Minimum width of 400
+            height: Math.max(groupHeight, 200), // Minimum height of 200
+          },
+        };
+      }
+      return node;
+    });
+
+    setNodes(processedNodes as Node<NodeData>[]);
   }, [setNodes]);
 
   const onNodeDrag = useCallback(

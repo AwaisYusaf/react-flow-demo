@@ -9,13 +9,20 @@ import {
 } from "@xyflow/react";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
+import { TWireframe } from "@/constants";
+
+export interface NodeData extends Record<string, unknown> {
+  label: string;
+  imageUrl?: string;
+  wireframe?: TWireframe;
+}
 
 interface StoreState {
-  nodes: Node[];
+  nodes: Node<NodeData>[];
   edges: Edge[];
   highlightedGroup: string | null;
   selectedNodes: string[];
-  setNodes: (nodes: Node[]) => void;
+  setNodes: (nodes: Node<NodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -34,9 +41,15 @@ export const useStore = create<StoreState>((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   onNodesChange: (changes) =>
-    set((state) => ({ nodes: applyNodeChanges(changes, state.nodes) })),
+    set((state) => ({
+      ...state,
+      nodes: applyNodeChanges(changes, state.nodes) as Node<NodeData>[],
+    })),
   onEdgesChange: (changes) =>
-    set((state) => ({ edges: applyEdgeChanges(changes, state.edges) })),
+    set((state) => ({
+      ...state,
+      edges: applyEdgeChanges(changes, state.edges),
+    })),
 
   highlightGroup: (groupId: string | null) => {
     set({ highlightedGroup: groupId });
@@ -48,7 +61,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   moveNodeToGroup: (nodeId: string, targetGroupId: string) => {
     set((state) => {
-      const nodes = [...state.nodes];
+      const nodes = [...state.nodes] as Node<NodeData>[];
       const nodeIndex = nodes.findIndex((n) => n.id === nodeId);
       const targetGroupIndex = nodes.findIndex((n) => n.id === targetGroupId);
 
@@ -71,13 +84,13 @@ export const useStore = create<StoreState>((set, get) => ({
         position: newPosition,
       };
 
-      return { nodes };
+      return { ...state, nodes };
     });
   },
 
   updateGroupSize: (groupId: string) => {
     set((state) => {
-      const nodes = [...state.nodes];
+      const nodes = [...state.nodes] as Node<NodeData>[];
       const groupIndex = nodes.findIndex((n) => n.id === groupId);
 
       if (groupIndex === -1) return state;
@@ -93,18 +106,32 @@ export const useStore = create<StoreState>((set, get) => ({
             height: 200,
           },
         };
-        return { nodes };
+        return { ...state, nodes };
       }
 
-      const nodeWidth = 200;
-      const nodeHeight = 150;
       const padding = 20;
+      let totalWidth = padding; // Start with initial padding
+      let maxHeight = 0;
 
-      const newWidth = Math.max(
-        400,
-        groupNodes.length * (nodeWidth + padding) + padding
-      );
-      const newHeight = Math.max(200, nodeHeight + padding * 2);
+      // First pass: calculate total width and max height
+      groupNodes.forEach((node) => {
+        const wireframe = node.data?.wireframe;
+        const nodeWidth = wireframe?.dimensions?.width || 200;
+        const nodeHeight = wireframe?.dimensions?.height || 150;
+
+        totalWidth += nodeWidth + padding; // Add node width and spacing
+        maxHeight = Math.max(maxHeight, nodeHeight);
+      });
+
+      // Add final padding to total width
+      totalWidth += padding;
+
+      // Add padding to height for top and bottom
+      const totalHeight = maxHeight + padding * 2;
+
+      // Ensure minimum dimensions
+      const newWidth = Math.max(400, totalWidth);
+      const newHeight = Math.max(200, totalHeight);
 
       nodes[groupIndex] = {
         ...nodes[groupIndex],
@@ -115,20 +142,27 @@ export const useStore = create<StoreState>((set, get) => ({
         },
       };
 
-      groupNodes.forEach((node, index) => {
+      // Second pass: update node positions
+      let currentX = padding;
+      groupNodes.forEach((node) => {
         const nodeIndex = nodes.findIndex((n) => n.id === node.id);
         if (nodeIndex !== -1) {
+          const wireframe = node.data?.wireframe;
+          const nodeWidth = wireframe?.dimensions?.width || 200;
+
           nodes[nodeIndex] = {
             ...nodes[nodeIndex],
             position: {
-              x: padding + index * (nodeWidth + padding),
-              y: padding,
+              x: currentX,
+              y: padding, // Center vertically if needed: (newHeight - nodeHeight) / 2
             },
           };
+
+          currentX += nodeWidth + padding;
         }
       });
 
-      return { nodes };
+      return { ...state, nodes };
     });
   },
 
