@@ -154,8 +154,8 @@ export const useStore = create<StoreState>((set, get) => ({
           ...nodes[groupIndex],
           style: {
             ...nodes[groupIndex].style,
-            width: 400,
-            height: 200,
+            width: 1024,
+            height: 840,
           },
         };
         return { ...state, nodes };
@@ -179,8 +179,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
       const totalHeight = maxHeight + padding * 2;
 
-      const newWidth = Math.max(400, totalWidth);
-      const newHeight = Math.max(200, totalHeight);
+      const newWidth = Math.max(1024, totalWidth);
+      const newHeight = Math.max(840, totalHeight);
 
       nodes[groupIndex] = {
         ...nodes[groupIndex],
