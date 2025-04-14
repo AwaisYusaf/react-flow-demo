@@ -161,7 +161,7 @@ export const useStore = create<StoreState>((set, get) => ({
         return { ...state, nodes };
       }
 
-      const padding = 20;
+      const padding = 50;
       let totalWidth = padding; // Start with initial padding
       let maxHeight = 0;
 
@@ -175,13 +175,10 @@ export const useStore = create<StoreState>((set, get) => ({
         maxHeight = Math.max(maxHeight, nodeHeight);
       });
 
-      // Add final padding to total width
       totalWidth += padding;
 
-      // Add padding to height for top and bottom
       const totalHeight = maxHeight + padding * 2;
 
-      // Ensure minimum dimensions
       const newWidth = Math.max(400, totalWidth);
       const newHeight = Math.max(200, totalHeight);
 
@@ -206,7 +203,7 @@ export const useStore = create<StoreState>((set, get) => ({
             ...nodes[nodeIndex],
             position: {
               x: currentX,
-              y: padding, // Center vertically if needed: (newHeight - nodeHeight) / 2
+              y: padding,
             },
           };
 
