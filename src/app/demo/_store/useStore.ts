@@ -9,7 +9,7 @@ import {
 } from "@xyflow/react";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
-import { TWireframe } from "@/constants";
+import { getWireframe, PAGE_GROUPS } from "@/lib/constants";
 
 export interface NodeData extends Record<string, unknown> {
   label: string;
@@ -31,6 +31,7 @@ interface StoreState {
   highlightGroup: (groupId: string | null) => void;
   setSelectedNodes: (nodeIds: string[]) => void;
   exportSelectedNodes: (format: "pdf" | "image") => Promise<void>;
+  loadReactFlowTree: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -38,6 +39,57 @@ export const useStore = create<StoreState>((set, get) => ({
   edges: [],
   highlightedGroup: null,
   selectedNodes: [],
+
+  loadReactFlowTree: () => {
+    let children: Node<NodeData>[] = [];
+    let lastGroupPosition = {
+      x: 0,
+      y: 0,
+    };
+
+    let initialGroupNodes = PAGE_GROUPS.map((group) => {
+      let maxHeight = 0;
+      let maxWidth = 0;
+      let previousX = 0;
+      group.wireframeIds.forEach((wireframeId, childIndex) => {
+        const wireframe = getWireframe(wireframeId);
+        maxWidth = maxWidth + (wireframe?.dimensions.width || 0) + 50;
+        maxHeight =
+          Math.max(maxHeight, wireframe?.dimensions.height || 0) + 100;
+
+        if (wireframe) {
+          children.push({
+            id: wireframeId,
+            type: "custom",
+            position: { x: previousX, y: 100 },
+            data: { label: wireframe.title, wireframe },
+            parentId: group.id,
+          });
+        }
+
+        previousX = previousX + (wireframe?.dimensions.width || 0) + 50;
+      });
+
+      // lastGroupPosition.x = lastGroupPosition.x + maxWidth + 50;
+      lastGroupPosition.y = lastGroupPosition.y + maxHeight + 100;
+
+      return {
+        id: group.id,
+        type: "group",
+        position: { x: lastGroupPosition.x, y: lastGroupPosition.y + 2000 },
+        data: { label: group.title },
+        style: {
+          width: maxWidth,
+          height: maxHeight,
+        },
+      };
+    });
+
+    let initialNodes = [...initialGroupNodes, ...children];
+    let initialEdges: Edge[] = [];
+    set({ nodes: initialNodes, edges: initialEdges });
+  },
+
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   onNodesChange: (changes) =>

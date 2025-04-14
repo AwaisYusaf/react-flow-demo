@@ -1,4 +1,3 @@
-import { type TWireframe } from "@/constants";
 import { Handle, Position } from "@xyflow/react";
 import Image from "next/image";
 import { useRef } from "react";
