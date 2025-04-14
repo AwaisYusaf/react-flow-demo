@@ -64,6 +64,9 @@ export default function CustomNode({ data }: CustomNodeProps) {
         className="w-16 !bg-teal-500"
       />
       <div className="flex flex-col items-center relative">
+        <div>
+          <h2>{data.label}</h2>
+        </div>
         {/* <div className="w-16 h-16 relative mb-2">
           <Image
             src={data.imageUrl}

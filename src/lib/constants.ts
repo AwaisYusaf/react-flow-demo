@@ -51,7 +51,7 @@ export const WIREFRAMES: TWireframe[] = [
   },
   {
     id: "f038cd9e-e8ca-4ebb-9625-197ce5329ce5",
-    title: "Wireframe 2",
+    title: "Wireframe 3",
     image: "/wireframe2.png",
     dimensions: {
       width: 1024,
@@ -62,7 +62,7 @@ export const WIREFRAMES: TWireframe[] = [
   },
   {
     id: "a581c9c8-3331-49ef-92e6-0903eecb8e84",
-    title: "Wireframe 3",
+    title: "Wireframe 4",
     image: "/wireframe3.png",
     dimensions: {
       width: 840,
@@ -73,7 +73,7 @@ export const WIREFRAMES: TWireframe[] = [
   },
   {
     id: "93fc3494-8098-4b6f-bd2d-361123f46bef",
-    title: "Wireframe 3",
+    title: "Wireframe 5",
     image: "/wireframe3.png",
     dimensions: {
       width: 840,
@@ -84,7 +84,7 @@ export const WIREFRAMES: TWireframe[] = [
   },
   {
     id: "ea2da4bf-eed6-4bda-8c81-6e0a6785bb5b",
-    title: "Wireframe 3",
+    title: "Wireframe 6",
     image: "/wireframe3.png",
     dimensions: {
       width: 840,
@@ -95,7 +95,7 @@ export const WIREFRAMES: TWireframe[] = [
   },
   {
     id: "b01cca80-7529-4b5c-96e6-db0a4afc9ab9",
-    title: "Wireframe 3",
+    title: "Wireframe 7",
     image: "/wireframe3.png",
     dimensions: {
       width: 840,
@@ -106,7 +106,7 @@ export const WIREFRAMES: TWireframe[] = [
   },
   {
     id: "740145b1-a7d3-4cb7-a2fc-352bfeef5e3b",
-    title: "Wireframe 3",
+    title: "Wireframe 8",
     image: "/wireframe3.png",
     dimensions: {
       width: 840,
