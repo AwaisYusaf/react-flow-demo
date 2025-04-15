@@ -1,45 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { ReactSortable } from "react-sortablejs";
-
-interface Node {
-  id: string;
-  text: string;
-}
-
-interface Group {
-  id: string;
-  name: string;
-  nodes: Node[];
-  position: {
-    x: number;
-    y: number;
-  };
-}
-
-const initialGroups: Group[] = [
-  {
-    id: "group1",
-    name: "Group A",
-    nodes: [
-      { id: "1", text: "Node 1" },
-      { id: "2", text: "Node 2" },
-      { id: "3", text: "Node 3" },
-    ],
-    position: { x: 20, y: 20 },
-  },
-  {
-    id: "group2",
-    name: "Group B",
-    nodes: [
-      { id: "4", text: "Node 4" },
-      { id: "5", text: "Node 5" },
-      { id: "6", text: "Node 6" },
-    ],
-    position: { x: 20, y: 200 },
-  },
-];
+import { useCanvasStore } from "@/store/useCanvasStore";
 
 interface DragState {
   groupId: string;
@@ -50,18 +13,17 @@ interface DragState {
 }
 
 function DraggableCanva() {
-  const [groups, setGroups] = useState<Group[]>(initialGroups);
-  const [draggedGroup, setDraggedGroup] = useState<string | null>(null);
-  const dragStateRef = useRef<DragState | null>(null);
-  const isDraggingNode = useRef(false);
+  const {
+    groups,
+    draggedGroup,
+    isDraggingNode,
+    updateGroupNodes,
+    setDraggedGroup,
+    setIsDraggingNode,
+    updateGroupPosition,
+  } = useCanvasStore();
 
-  const updateGroupNodes = (groupId: string, newNodes: Node[]) => {
-    setGroups((prevGroups) =>
-      prevGroups.map((group) =>
-        group.id === groupId ? { ...group, nodes: newNodes } : group
-      )
-    );
-  };
+  const dragStateRef = useRef<DragState | null>(null);
 
   const clearDragState = () => {
     setDraggedGroup(null);
@@ -70,30 +32,17 @@ function DraggableCanva() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!dragStateRef.current || isDraggingNode.current) return;
+      if (!dragStateRef.current || isDraggingNode) return;
 
-      const { groupId, initialX, initialY, offsetX, offsetY } =
-        dragStateRef.current;
+      const { groupId, offsetX, offsetY } = dragStateRef.current;
       const newX = e.clientX - offsetX;
       const newY = e.clientY - offsetY;
 
-      setGroups((prevGroups) =>
-        prevGroups.map((group) =>
-          group.id === groupId
-            ? {
-                ...group,
-                position: {
-                  x: newX,
-                  y: newY,
-                },
-              }
-            : group
-        )
-      );
+      updateGroupPosition(groupId, newX, newY);
     };
 
     const handleMouseUp = () => {
-      if (dragStateRef.current && !isDraggingNode.current) {
+      if (dragStateRef.current && !isDraggingNode) {
         clearDragState();
       }
     };
@@ -107,12 +56,11 @@ function DraggableCanva() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draggedGroup]);
+  }, [draggedGroup, isDraggingNode, updateGroupPosition]);
 
   const handleMouseDown = (e: React.MouseEvent, groupId: string) => {
-    // Prevent group dragging if clicking on a sortable node
     if ((e.target as HTMLElement).closest(".sortable-item")) {
-      isDraggingNode.current = true;
+      setIsDraggingNode(true);
       return;
     }
 
@@ -154,11 +102,11 @@ function DraggableCanva() {
             group="shared"
             className="flex gap-4"
             onStart={() => {
-              isDraggingNode.current = true;
+              setIsDraggingNode(true);
               clearDragState();
             }}
             onEnd={() => {
-              isDraggingNode.current = false;
+              setIsDraggingNode(false);
             }}
           >
             {group.nodes.map((node) => (

@@ -57,12 +57,13 @@ export default function WireframeCard({ data }: CustomNodeProps) {
   };
 
   return (
-    <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-stone-400">
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="w-16 !bg-teal-500"
-      />
+    <div
+      style={{
+        width: wireframe?.dimensions.width,
+        height: wireframe?.dimensions.height,
+      }}
+      className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-stone-400"
+    >
       <div className="flex flex-col items-center relative">
         <div>
           <h2>{data.label}</h2>
@@ -101,11 +102,11 @@ export default function WireframeCard({ data }: CustomNodeProps) {
           }}
         />
       </div>
-      <Handle
+      {/* <Handle
         type="source"
         position={Position.Bottom}
         className="w-16 !bg-teal-500"
-      />
+      /> */}
     </div>
   );
 }
