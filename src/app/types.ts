@@ -16,3 +16,20 @@ interface TWireframe {
   type: "mobile" | "desktop";
   _html: string;
 }
+interface TNode {
+  id: string;
+  type: "custom" | "group";
+  data: {
+    label: string;
+    wireframe?: TWireframe;
+  };
+  position: {
+    x: number;
+    y: number;
+  };
+  parentId?: string;
+  style?: {
+    width?: number;
+    height?: number;
+  };
+}

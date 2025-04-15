@@ -14,7 +14,12 @@ import { getWireframe, PAGE_GROUPS } from "@/lib/constants";
 export interface NodeData extends Record<string, unknown> {
   label: string;
   imageUrl?: string;
-  wireframe?: TWireframe;
+  wireframe: {
+    dimensions: {
+      width: number;
+      height: number;
+    };
+  };
 }
 
 interface StoreState {
@@ -32,6 +37,7 @@ interface StoreState {
   setSelectedNodes: (nodeIds: string[]) => void;
   exportSelectedNodes: (format: "pdf" | "image") => Promise<void>;
   loadReactFlowTree: () => void;
+  reorderNodesInGroup: (nodeId: string, x: number) => void;
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -41,6 +47,7 @@ export const useStore = create<StoreState>((set, get) => ({
   selectedNodes: [],
 
   loadReactFlowTree: () => {
+    console.log("Loading React Flow Tree()...");
     let children: Node<NodeData>[] = [];
     let lastGroupPosition = {
       x: 0,
@@ -56,7 +63,6 @@ export const useStore = create<StoreState>((set, get) => ({
         maxWidth = maxWidth + (wireframe?.dimensions.width || 0) + 50;
         maxHeight =
           Math.max(maxHeight, wireframe?.dimensions.height || 0) + 100;
-
         if (wireframe) {
           children.push({
             id: wireframeId,
@@ -64,9 +70,8 @@ export const useStore = create<StoreState>((set, get) => ({
             position: { x: previousX, y: 100 },
             data: { label: wireframe.title, wireframe },
             parentId: group.id,
-          });
+          } satisfies TNode);
         }
-
         previousX = previousX + (wireframe?.dimensions.width || 0) + 50;
       });
 
@@ -77,17 +82,26 @@ export const useStore = create<StoreState>((set, get) => ({
         id: group.id,
         type: "group",
         position: { x: lastGroupPosition.x, y: lastGroupPosition.y + 2000 },
-        data: { label: group.title },
+        data: {
+          label: group.title,
+        },
         style: {
           width: maxWidth,
           height: maxHeight,
         },
-      };
+      } satisfies TNode;
     });
 
-    let initialNodes = [...initialGroupNodes, ...children];
+    let initialNodes = [
+      ...initialGroupNodes,
+      ...children,
+      // ...children.sort(
+      //   (a, b) => (a.data.order as number) - (b.data.order as number)
+      // ),
+    ];
+
     let initialEdges: Edge[] = [];
-    set({ nodes: initialNodes, edges: initialEdges });
+    set({ nodes: initialNodes as Node<NodeData>[], edges: initialEdges });
   },
 
   setNodes: (nodes) => set({ nodes }),
@@ -112,104 +126,168 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   moveNodeToGroup: (nodeId: string, targetGroupId: string) => {
+    console.log("moveNodeToGroup()...");
     set((state) => {
       const nodes = [...state.nodes] as Node<NodeData>[];
       const nodeIndex = nodes.findIndex((n) => n.id === nodeId);
-      const targetGroupIndex = nodes.findIndex((n) => n.id === targetGroupId);
 
-      if (nodeIndex === -1 || targetGroupIndex === -1) return state;
+      if (nodeIndex === -1) return state;
 
-      const targetGroupNodes = nodes.filter(
-        (n) => n.parentId === targetGroupId
-      );
-      const nodeWidth = 200;
-      const padding = 20;
+      const node = nodes[nodeIndex];
+      const sourceGroupId = node.parentId;
 
-      const newPosition = {
-        x: padding + targetGroupNodes.length * (nodeWidth + padding),
-        y: padding,
-      };
+      if (!sourceGroupId) return state;
 
+      // Get nodes in target group
+      const targetGroupNodes = nodes
+        .filter((n) => n.parentId === targetGroupId)
+        .sort((a, b) => a.position.x - b.position.x);
+
+      // Calculate drop position relative to target group nodes
+      const dropX = node.position.x;
+      let insertX = 50;
+      let insertIndex = 0;
+
+      // Get the standard y position for the target group (100 if empty, or use existing node's y)
+      const targetGroupY =
+        targetGroupNodes.length > 0 ? targetGroupNodes[0].position.y : 100;
+
+      if (targetGroupNodes.length === 0) {
+        insertX = 50;
+      } else {
+        for (let i = 0; i < targetGroupNodes.length; i++) {
+          const currentNode = targetGroupNodes[i];
+          const currentNodeWidth =
+            currentNode.data?.wireframe?.dimensions?.width || 200;
+          const currentNodeRight = currentNode.position.x + currentNodeWidth;
+          const currentNodeCenter =
+            currentNode.position.x + currentNodeWidth / 2;
+
+          if (dropX < currentNode.position.x) {
+            insertX = currentNode.position.x - 50;
+            insertIndex = i;
+            break;
+          }
+
+          if (i === targetGroupNodes.length - 1) {
+            insertX = currentNodeRight + 50;
+            insertIndex = targetGroupNodes.length;
+          } else {
+            const nextNode = targetGroupNodes[i + 1];
+            if (dropX >= currentNodeRight && dropX < nextNode.position.x) {
+              insertX = dropX;
+              insertIndex = i + 1;
+              break;
+            }
+          }
+        }
+      }
+
+      // Move node to target group with consistent y position
       nodes[nodeIndex] = {
         ...nodes[nodeIndex],
         parentId: targetGroupId,
-        position: newPosition,
+        position: {
+          x: insertX,
+          y: targetGroupY,
+        },
       };
+
+      // Reposition nodes in target group after insertion point
+      let currentX =
+        insertX + (node.data?.wireframe?.dimensions?.width || 200) + 50;
+      targetGroupNodes.slice(insertIndex).forEach((n) => {
+        const idx = nodes.findIndex((node) => node.id === n.id);
+        if (idx !== -1) {
+          nodes[idx] = {
+            ...nodes[idx],
+            position: {
+              x: currentX,
+              y: targetGroupY,
+            },
+          };
+          currentX += (n.data?.wireframe?.dimensions?.width || 200) + 50;
+        }
+      });
+
+      // Get the standard y position for the source group
+      const sourceGroupNodes = nodes
+        .filter((n) => n.parentId === sourceGroupId && n.id !== nodeId)
+        .sort((a, b) => a.position.x - b.position.x);
+
+      const sourceGroupY =
+        sourceGroupNodes.length > 0 ? sourceGroupNodes[0].position.y : 100;
+
+      // Reposition nodes in source group
+      currentX = 50;
+      sourceGroupNodes.forEach((n) => {
+        const idx = nodes.findIndex((node) => node.id === n.id);
+        if (idx !== -1) {
+          nodes[idx] = {
+            ...nodes[idx],
+            position: {
+              x: currentX,
+              y: sourceGroupY,
+            },
+          };
+          currentX += (n.data?.wireframe?.dimensions?.width || 200) + 50;
+        }
+      });
 
       return { ...state, nodes };
     });
   },
 
   updateGroupSize: (groupId: string) => {
+    console.log("updateGroupSize()...");
     set((state) => {
       const nodes = [...state.nodes] as Node<NodeData>[];
       const groupIndex = nodes.findIndex((n) => n.id === groupId);
 
       if (groupIndex === -1) return state;
 
-      const groupNodes = nodes.filter((n) => n.parentId === groupId);
+      const groupNodes = nodes
+        .filter((n) => n.parentId === groupId)
+        .sort((a, b) => a.position.x - b.position.x);
 
       if (groupNodes.length === 0) {
+        console.log("[CASE 1] groupNodes length is 0");
         nodes[groupIndex] = {
           ...nodes[groupIndex],
           style: {
             ...nodes[groupIndex].style,
-            width: 1024,
-            height: 840,
+            width: 200,
+            height: 200,
           },
         };
         return { ...state, nodes };
       }
+      console.log("[CASE 2] ...");
 
       const padding = 50;
-      let totalWidth = padding; // Start with initial padding
+      let maxWidth = padding;
       let maxHeight = 0;
 
-      // First pass: calculate total width and max height
+      // Calculate max width and height without changing positions
       groupNodes.forEach((node) => {
         const wireframe = node.data?.wireframe;
         const nodeWidth = wireframe?.dimensions?.width || 200;
         const nodeHeight = wireframe?.dimensions?.height || 150;
+        const nodeRight = node.position.x + nodeWidth;
 
-        totalWidth += nodeWidth + padding; // Add node width and spacing
+        maxWidth = Math.max(maxWidth, nodeRight + padding);
         maxHeight = Math.max(maxHeight, nodeHeight);
       });
 
-      totalWidth += padding;
-
-      const totalHeight = maxHeight + padding * 2;
-
-      const newWidth = Math.max(1024, totalWidth);
-      const newHeight = Math.max(840, totalHeight);
-
+      // Update the group size
       nodes[groupIndex] = {
         ...nodes[groupIndex],
         style: {
           ...nodes[groupIndex].style,
-          width: newWidth,
-          height: newHeight,
+          width: Math.max(maxWidth, 200),
+          height: Math.max(maxHeight + padding * 2, 200),
         },
       };
-
-      // Second pass: update node positions
-      let currentX = padding;
-      groupNodes.forEach((node) => {
-        const nodeIndex = nodes.findIndex((n) => n.id === node.id);
-        if (nodeIndex !== -1) {
-          const wireframe = node.data?.wireframe;
-          const nodeWidth = wireframe?.dimensions?.width || 200;
-
-          nodes[nodeIndex] = {
-            ...nodes[nodeIndex],
-            position: {
-              x: currentX,
-              y: padding,
-            },
-          };
-
-          currentX += nodeWidth + padding;
-        }
-      });
 
       return { ...state, nodes };
     });
@@ -301,5 +379,124 @@ export const useStore = create<StoreState>((set, get) => ({
       console.error("Export error:", error);
       alert(`Export failed: ${error.message || "Unknown error"}`);
     }
+  },
+
+  reorderNodesInGroup: (nodeId: string, x: number) => {
+    console.log("reorderNodesInGroup()...");
+    console.log("Node Id:", nodeId);
+    console.log("X:", x);
+    set((state) => {
+      const nodes = [...state.nodes] as Node<NodeData>[];
+      const nodeIndex = nodes.findIndex((n) => n.id === nodeId);
+
+      if (nodeIndex === -1) return state;
+
+      const node = nodes[nodeIndex];
+      const groupId = node.parentId;
+
+      if (!groupId) return state;
+
+      const groupNodes = nodes
+        .filter((n) => n.parentId === groupId)
+        .sort((a, b) => a.position.x - b.position.x);
+
+      const currentIndex = groupNodes.findIndex((n) => n.id === nodeId);
+      if (currentIndex === -1) return state;
+
+      const groupY = groupNodes[0].position.y;
+
+      const nodeWidth = node.data?.wireframe?.dimensions?.width || 200;
+      let targetX = Math.max(50, x);
+      let insertIndex = 0;
+
+      groupNodes.splice(currentIndex, 1);
+
+      if (groupNodes.length === 0) {
+        targetX = 50;
+      } else {
+        for (let i = 0; i < groupNodes.length; i++) {
+          const currentNode = groupNodes[i];
+          const currentNodeWidth =
+            currentNode.data?.wireframe?.dimensions?.width || 200;
+          const currentNodeRight = currentNode.position.x + currentNodeWidth;
+          const currentNodeCenter =
+            currentNode.position.x + currentNodeWidth / 2;
+
+          const overlapStart = Math.max(x, currentNode.position.x);
+          const overlapEnd = Math.min(x + nodeWidth, currentNodeRight);
+          const overlapWidth = Math.max(0, overlapEnd - overlapStart);
+          const overlapPercentage = overlapWidth / currentNodeWidth;
+
+          if (overlapPercentage > 0.3) {
+            if (x < currentNodeCenter) {
+              targetX = Math.max(50, currentNode.position.x - nodeWidth - 50);
+              insertIndex = i;
+            } else {
+              targetX = currentNodeRight + 50;
+              insertIndex = i + 1;
+            }
+            break;
+          } else if (x < currentNode.position.x) {
+            targetX = Math.max(50, x);
+            insertIndex = i;
+            break;
+          }
+
+          if (i === groupNodes.length - 1) {
+            targetX = currentNodeRight + 50;
+            insertIndex = groupNodes.length;
+          } else {
+            const nextNode = groupNodes[i + 1];
+            const gap = nextNode.position.x - currentNodeRight;
+
+            if (x >= currentNodeRight && x < nextNode.position.x) {
+              insertIndex = i + 1;
+              if (gap >= 100) {
+                targetX = Math.min(
+                  nextNode.position.x - nodeWidth - 50,
+                  Math.max(currentNodeRight + 50, x)
+                );
+              } else {
+                targetX = currentNodeRight + 50;
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      nodes[nodeIndex] = {
+        ...nodes[nodeIndex],
+        position: {
+          x: targetX,
+          y: groupY,
+        },
+      };
+
+      // Reposition other nodes with consistent y
+      groupNodes.splice(insertIndex, 0, node);
+      let currentX = 50;
+
+      groupNodes.forEach((groupNode) => {
+        if (groupNode.id === nodeId) {
+          currentX = targetX + nodeWidth + 50;
+        } else {
+          const idx = nodes.findIndex((n) => n.id === groupNode.id);
+          if (idx !== -1) {
+            nodes[idx] = {
+              ...nodes[idx],
+              position: {
+                x: currentX,
+                y: groupY,
+              },
+            };
+            currentX +=
+              (groupNode.data?.wireframe?.dimensions?.width || 200) + 50;
+          }
+        }
+      });
+
+      return { ...state, nodes };
+    });
   },
 }));

@@ -13,7 +13,7 @@ interface CustomNodeProps {
 export default function CustomNode({ data }: CustomNodeProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wireframe = data.wireframe;
-  console.log("Wireframe", wireframe);
+  // console.log("Wireframe", wireframe);
 
   const mobileView = false;
 

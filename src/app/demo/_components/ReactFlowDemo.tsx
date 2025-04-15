@@ -6,12 +6,12 @@ import {
   ReactFlow,
   BackgroundVariant,
   Node,
-  Edge,
   OnSelectionChangeParams,
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "./CustomNode";
+import DropIndicator from "./DropIndicator";
 import { useStore } from "../_store/useStore";
 
 const nodeTypes = {
@@ -30,42 +30,134 @@ export default function ReactFlowDemo() {
     selectedNodes,
     exportSelectedNodes,
     loadReactFlowTree,
+    reorderNodesInGroup,
   } = useStore();
-  const { getIntersectingNodes } = useReactFlow();
+  const { getIntersectingNodes, getNode } = useReactFlow();
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [dropIndicator, setDropIndicator] = useState<{
+    x: number;
+    y: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     loadReactFlowTree();
   }, [loadReactFlowTree]);
 
+  const findDropPosition = useCallback(
+    (node: Node, x: number) => {
+      const currentGroup = nodes.find((n) => n.id === node.parentId);
+      if (!currentGroup) return null;
+
+      const groupNodes = nodes
+        .filter((n) => n.parentId === node.parentId && n.id !== node.id)
+        .sort((a, b) => a.position.x - b.position.x);
+
+      // If no other nodes in group, show indicator at x position
+      if (groupNodes.length === 0) {
+        return {
+          x: Math.max(50, x), // Ensure minimum x of 50
+          y: currentGroup.position.y + 50,
+          height: (currentGroup.style?.height as number) - 100 || 740,
+        };
+      }
+
+      // If before first node
+      if (x < groupNodes[0].position.x) {
+        return {
+          x: Math.max(25, groupNodes[0].position.x - 25),
+          y: currentGroup.position.y + 50,
+          height: (currentGroup.style?.height as number) - 100 || 740,
+        };
+      }
+
+      // If after last node
+      const lastNode = groupNodes[groupNodes.length - 1];
+      const lastNodeRight =
+        lastNode.position.x +
+        (lastNode.data?.wireframe?.dimensions?.width || 200);
+      if (x > lastNodeRight) {
+        return {
+          x: lastNodeRight + 25,
+          y: currentGroup.position.y + 50,
+          height: (currentGroup.style?.height as number) - 100 || 740,
+        };
+      }
+
+      // Find position between nodes
+      for (let i = 0; i < groupNodes.length - 1; i++) {
+        const curr = groupNodes[i];
+        const next = groupNodes[i + 1];
+        const currRight =
+          curr.position.x + (curr.data?.wireframe?.dimensions?.width || 200);
+
+        if (x > currRight && x < next.position.x) {
+          return {
+            x: currRight + (next.position.x - currRight) / 2,
+            y: currentGroup.position.y + 50,
+            height: (currentGroup.style?.height as number) - 100 || 740,
+          };
+        }
+      }
+
+      return null;
+    },
+    [nodes]
+  );
+
   const onNodeDrag = useCallback(
     (event: any, node: Node) => {
       const intersectingNodes = getIntersectingNodes(node);
-      const targetGroup = intersectingNodes.find(
+      const relevantNodes = intersectingNodes.filter((n) => n.id !== node.id);
+
+      const targetGroup = relevantNodes.find(
         (n) => n.type === "group" && n.id !== node.parentId
       );
 
-      highlightGroup(targetGroup?.id || null);
+      if (targetGroup) {
+        highlightGroup(targetGroup.id);
+        setDropIndicator(null);
+      } else if (node.parentId) {
+        highlightGroup(null);
+        // Use node's current drag position for drop indicator
+        const dropPos = findDropPosition(node, event.clientX);
+        setDropIndicator(dropPos);
+      }
     },
-    [getIntersectingNodes, highlightGroup]
+    [getIntersectingNodes, highlightGroup, findDropPosition]
   );
 
   const onNodeDragStop = useCallback(
     (event: any, node: Node) => {
+      event.preventDefault();
       const intersectingNodes = getIntersectingNodes(node);
-      const targetGroup = intersectingNodes.find(
+      const relevantNodes = intersectingNodes.filter((n) => n.id !== node.id);
+
+      const targetGroup = relevantNodes.find(
         (n) => n.type === "group" && n.id !== node.parentId
       );
 
       if (targetGroup) {
         moveNodeToGroup(node.id, targetGroup.id);
-        updateGroupSize(node.parentId!);
+        if (node.parentId) {
+          updateGroupSize(node.parentId);
+        }
         updateGroupSize(targetGroup.id);
+      } else if (node.parentId) {
+        reorderNodesInGroup(node.id, node.position.x);
+        updateGroupSize(node.parentId);
       }
 
       highlightGroup(null);
+      setDropIndicator(null);
     },
-    [getIntersectingNodes, moveNodeToGroup, updateGroupSize, highlightGroup]
+    [
+      getIntersectingNodes,
+      moveNodeToGroup,
+      updateGroupSize,
+      highlightGroup,
+      reorderNodesInGroup,
+    ]
   );
 
   const onSelectionChange = useCallback(
@@ -122,9 +214,20 @@ export default function ReactFlowDemo() {
         onSelectionChange={onSelectionChange}
         selectionOnDrag
         selectNodesOnDrag
+        snapToGrid={false}
+        snapGrid={[1, 1]}
+        nodesDraggable={true}
+        preventScrolling={true}
         fitView
       >
         <Background variant={BackgroundVariant.Dots} />
+        {dropIndicator && (
+          <DropIndicator
+            x={dropIndicator.x}
+            y={dropIndicator.y}
+            height={dropIndicator.height}
+          />
+        )}
         <Panel
           position="top-right"
           style={{ display: "flex", gap: "1rem", alignItems: "start" }}
