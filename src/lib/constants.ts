@@ -1,4 +1,5 @@
 import { DESKTOP_VIEW_HTML, MOBILE_VIEW_HTML } from "./iframe.constant";
+import type { TGroup, TWireframe } from "./types";
 
 export const PAGE_GROUPS: TGroup[] = [
   {
