@@ -15,4 +15,8 @@ export interface TGroup {
   title: string;
   pageId: string;
   wireframeIds: string[];
+  position: {
+    x: number;
+    y: number;
+  };
 }

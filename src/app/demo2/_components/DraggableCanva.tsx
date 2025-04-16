@@ -2,7 +2,9 @@
 
 import React, { useRef, useEffect } from "react";
 import { ReactSortable } from "react-sortablejs";
-import { useCanvasStore } from "@/store/useCanvasStore";
+import { useCanvasStore } from "@/app/demo2/_store/useCanvasStore";
+import { getWireframe } from "@/lib/constants";
+import WireframeCard from "./WireframeCard";
 
 interface DragState {
   groupId: string;
@@ -16,10 +18,10 @@ function DraggableCanva() {
   const {
     groups,
     draggedGroup,
-    isDraggingNode,
-    updateGroupNodes,
+    isDraggingWireframe,
+    updateGroupWireframes,
     setDraggedGroup,
-    setIsDraggingNode,
+    setIsDraggingWireframe,
     updateGroupPosition,
   } = useCanvasStore();
 
@@ -32,7 +34,7 @@ function DraggableCanva() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!dragStateRef.current || isDraggingNode) return;
+      if (!dragStateRef.current || isDraggingWireframe) return;
 
       const { groupId, offsetX, offsetY } = dragStateRef.current;
       const newX = e.clientX - offsetX;
@@ -42,7 +44,7 @@ function DraggableCanva() {
     };
 
     const handleMouseUp = () => {
-      if (dragStateRef.current && !isDraggingNode) {
+      if (dragStateRef.current && !isDraggingWireframe) {
         clearDragState();
       }
     };
@@ -56,11 +58,11 @@ function DraggableCanva() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draggedGroup, isDraggingNode, updateGroupPosition]);
+  }, [draggedGroup, isDraggingWireframe, updateGroupPosition]);
 
   const handleMouseDown = (e: React.MouseEvent, groupId: string) => {
     if ((e.target as HTMLElement).closest(".sortable-item")) {
-      setIsDraggingNode(true);
+      setIsDraggingWireframe(true);
       return;
     }
 
@@ -76,11 +78,11 @@ function DraggableCanva() {
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] p-4 overflow-hidden bg-gray-100">
+    <div className="relative w-full h-[calc(100vh-4rem)] p-4 overflow-hidden bg-gray-50">
       {groups.map((group) => (
         <div
           key={group.id}
-          className="fixed border rounded-lg p-4 bg-white shadow-lg select-none"
+          className="fixed border rounded-lg p-4 shadow-lg select-none"
           style={{
             left: `${group.position.x}px`,
             top: `${group.position.y}px`,
@@ -94,28 +96,31 @@ function DraggableCanva() {
           onMouseDown={(e) => handleMouseDown(e, group.id)}
         >
           <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-lg font-semibold">{group.name}</h3>
+            <h3 className="text-lg font-semibold">{group.title}</h3>
           </div>
           <ReactSortable
-            list={group.nodes}
-            setList={(newNodes) => updateGroupNodes(group.id, newNodes)}
+            list={group.wireframeIds.map((id) => ({ id }))}
+            setList={(newNodes) =>
+              updateGroupWireframes(
+                group.id,
+                newNodes.map((n) => n.id)
+              )
+            }
             group="shared"
-            className="flex gap-4"
+            className="flex gap-8"
             onStart={() => {
-              setIsDraggingNode(true);
+              setIsDraggingWireframe(true);
               clearDragState();
             }}
             onEnd={() => {
-              setIsDraggingNode(false);
+              setIsDraggingWireframe(false);
             }}
           >
-            {group.nodes.map((node) => (
-              <div
-                key={node.id}
-                className="bg-white border rounded-md p-4 cursor-move shadow-sm hover:shadow-md sortable-item"
-              >
-                {node.text}
-              </div>
+            {group.wireframeIds.map((wId, index) => (
+              <WireframeCard
+                key={wId + index}
+                data={getWireframe(wId) as TWireframe}
+              />
             ))}
           </ReactSortable>
         </div>

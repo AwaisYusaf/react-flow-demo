@@ -12,6 +12,10 @@ export const PAGE_GROUPS: TGroup[] = [
       "f038cd9e-e8ca-4ebb-9625-197ce5329ce5",
       "a581c9c8-3331-49ef-92e6-0903eecb8e84",
     ],
+    position: {
+      x: 0,
+      y: 0,
+    },
   },
   {
     id: "1a2a6d87-118c-48e0-b8b2-6b841efce4cc",
@@ -23,6 +27,10 @@ export const PAGE_GROUPS: TGroup[] = [
       "b01cca80-7529-4b5c-96e6-db0a4afc9ab9",
       "740145b1-a7d3-4cb7-a2fc-352bfeef5e3b",
     ],
+    position: {
+      x: 0,
+      y: 1000,
+    },
   },
 ];
 
